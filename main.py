@@ -5,6 +5,8 @@ from mesa import Agent, Model
 from mesa.space import ContinuousSpace
 from mesa.datacollection import DataCollector
 
+from metrics import compute_distance_from_nest, plot_mean_distance
+
 
 class AntAgent(Agent):
     def __init__(self, model, step_size=1.0):
@@ -91,5 +93,10 @@ def plot_trajectories(agent_df, width=40, height=40):
 
 if __name__ == "__main__":
     model, agent_df = run_demo(steps=60, n_ants=6, seed=123)
-    print(agent_df.head())
+
     plot_trajectories(agent_df, width=model.width, height=model.height)
+    _, mean_distance_per_step, final_mean_distance = compute_distance_from_nest(
+        agent_df, nest_x=model.width / 2, nest_y=model.height / 2
+    )
+
+    plot_mean_distance(mean_distance_per_step)
