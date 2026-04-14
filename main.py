@@ -12,7 +12,7 @@ from metrics import (
     compute_space_coverage,
 )
 
-from plots import plot_mean_distance, plot_trajectories
+from plots import plot_mean_distance, plot_ant_trajectories
 
 class AntAgent(Agent):
     def __init__(self, model, step_size=1.0):
@@ -166,7 +166,7 @@ def run_demo(steps=80, n_ants=20, seed=42):
 if __name__ == "__main__":
     model, agent_df = run_demo(steps=100, n_ants=20, seed=123)
 
-    plot_trajectories(
+    plot_ant_trajectories(
         agent_df,
         width=model.width,
         height=model.height,
