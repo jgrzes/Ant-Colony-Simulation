@@ -1,5 +1,5 @@
 .venv/
-Metric Raports/
+Generated Plots/
+Simulation Metrics Reports/
 dataset/
-plots/
-__pycache__/
+__pycache__

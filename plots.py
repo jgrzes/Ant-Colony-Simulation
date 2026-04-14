@@ -1,11 +1,11 @@
 import matplotlib.pyplot as plt
 from pathlib import Path
 
-PLOT_DIR = Path(__file__).resolve().parent / "plots"
+PLOT_DIR = Path(__file__).resolve().parent / "Generated Plots"
 PLOT_DIR.mkdir(parents=True, exist_ok=True)
 
 
-def plot_mean_distance(mean_distance_per_step):
+def plot_mean_distance(mean_distance_per_step, is_simulation=True):
     plt.figure(figsize=(8, 5))
     plt.plot(
         mean_distance_per_step["step"],
@@ -13,7 +13,7 @@ def plot_mean_distance(mean_distance_per_step):
         marker="o",
         markersize=3,
     )
-    plt.xlabel("Krok symulacji")
+    plt.xlabel("Krok symulacji" if is_simulation else "Krok sekwencji")
     plt.ylabel("Średnia odległość od mrowiska")
     plt.title("Zmiana średniej odległości agentów od mrowiska")
     plt.grid(True)
@@ -62,7 +62,7 @@ def plot_ant_trajectories(
     plt.savefig(PLOT_DIR / f"{title.replace(' ', '_')}.png")
 
 
-def plot_space_coverage(coverage_per_step):
+def plot_space_coverage(coverage_per_step, is_simulation=True):
     plt.figure(figsize=(8, 5))
     plt.plot(
         coverage_per_step["step"],
@@ -70,8 +70,23 @@ def plot_space_coverage(coverage_per_step):
         marker="o",
         markersize=3,
     )
-    plt.xlabel("Krok symulacji")
+    plt.xlabel("Krok symulacji" if is_simulation else "Krok sekwencji")
     plt.ylabel("Pokrycie przestrzeni")
     plt.title("Zmiana pokrycia przestrzeni przez agentów")
     plt.grid(True)
     plt.savefig(PLOT_DIR / "space_coverage_over_time.png")
+
+
+def plot_colony_dispersion(dispersion_per_step, is_simulation=True):
+    plt.figure(figsize=(8, 5))
+    plt.plot(
+        dispersion_per_step["step"],
+        dispersion_per_step["dispersion"],
+        marker="o",
+        markersize=3,
+    )
+    plt.xlabel("Krok symulacji" if is_simulation else "Krok sekwencji")
+    plt.ylabel("Dyspersja kolonii")
+    plt.title("Zmiana dyspersji kolonii w czasie")
+    plt.grid(True)
+    plt.savefig(PLOT_DIR / "colony_dispersion_over_time.png")

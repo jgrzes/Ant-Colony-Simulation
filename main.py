@@ -1,7 +1,9 @@
 import math
+from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 from mesa import Agent, Model
 from mesa.datacollection import DataCollector
 from mesa.space import ContinuousSpace
@@ -12,7 +14,13 @@ from metrics import (
     compute_space_coverage,
 )
 
-from plots import plot_mean_distance, plot_ant_trajectories
+from plots import (
+    plot_mean_distance,
+    plot_ant_trajectories,
+    plot_space_coverage,
+    plot_colony_dispersion,
+)
+
 
 class AntAgent(Agent):
     def __init__(self, model, step_size=1.0):
@@ -63,7 +71,9 @@ class AntAgent(Agent):
         )
 
         # Mały losowy szum, żeby ruch nie był całkiem deterministyczny
-        noise = self.random.uniform(-self.model.noise_strength, self.model.noise_strength)
+        noise = self.random.uniform(
+            -self.model.noise_strength, self.model.noise_strength
+        )
 
         # Aktualizacja kierunku
         self.heading += pheromone_bias + noise
@@ -134,12 +144,57 @@ class AntModel(Model):
         self.datacollector.collect(self)
 
     def evaporate_pheromones(self):
-        self.pheromone_grid *= (1.0 - self.evaporation_rate)
+        self.pheromone_grid *= 1.0 - self.evaporation_rate
 
     def step(self):
         self.agents.shuffle_do("step")
         self.evaporate_pheromones()
         self.datacollector.collect(self)
+
+
+def build_step_metrics(agent_df, nest_x, nest_y, width, height, cell_size=1.0):
+    _, mean_distance_per_step, final_mean_distance = compute_distance_from_nest(
+        agent_df,
+        nest_x=nest_x,
+        nest_y=nest_y,
+    )
+    dispersion_df = compute_colony_dispersion(
+        agent_df,
+        nest_x=nest_x,
+        nest_y=nest_y,
+    )
+
+    step_metrics_df = mean_distance_per_step.merge(dispersion_df, on="step", how="left")
+
+    cells_df = agent_df.copy()
+    cells_df["cell_x"] = (cells_df["x"] // cell_size).astype(int)
+    cells_df["cell_y"] = (cells_df["y"] // cell_size).astype(int)
+
+    total_cells = int((width // cell_size) * (height // cell_size))
+    visited_cells = set()
+    coverage_by_step = {}
+
+    for step in sorted(cells_df["step"].unique()):
+        step_cells = cells_df.loc[
+            cells_df["step"] == step, ["cell_x", "cell_y"]
+        ].drop_duplicates()
+        visited_cells.update(map(tuple, step_cells.to_numpy()))
+        coverage_by_step[int(step)] = (
+            0.0 if total_cells == 0 else len(visited_cells) / total_cells
+        )
+
+    step_metrics_df["space_coverage"] = (
+        step_metrics_df["step"].map(coverage_by_step).fillna(0.0)
+    )
+    step_metrics_df["ants"] = (
+        agent_df.groupby("step")["agent_id"]
+        .nunique()
+        .reindex(step_metrics_df["step"])
+        .to_numpy()
+    )
+    step_metrics_df = step_metrics_df.sort_values("step").reset_index(drop=True)
+
+    return step_metrics_df
 
 
 def run_demo(steps=80, n_ants=20, seed=42):
@@ -164,7 +219,29 @@ def run_demo(steps=80, n_ants=20, seed=42):
 
 
 if __name__ == "__main__":
-    model, agent_df = run_demo(steps=100, n_ants=20, seed=123)
+    steps = 100
+    n_ants = 20
+    seed = 123
+
+    model, agent_df = run_demo(steps=steps, n_ants=n_ants, seed=seed)
+
+    step_metrics_df = build_step_metrics(
+        agent_df,
+        nest_x=model.nest_x,
+        nest_y=model.nest_y,
+        width=model.width,
+        height=model.height,
+        cell_size=1.0,
+    )
+
+    report_dir = Path(__file__).resolve().parent / "Simulation Metrics Reports"
+    report_dir.mkdir(parents=True, exist_ok=True)
+    run_tag = f"sim_s{steps}_a{n_ants}_seed{seed}"
+
+    step_report_path = report_dir / f"{run_tag}_metrics_per_step.csv"
+    step_metrics_df.to_csv(step_report_path, index=False)
+
+    print(f"Saved step metrics CSV: {step_report_path}")
 
     plot_ant_trajectories(
         agent_df,
@@ -172,20 +249,6 @@ if __name__ == "__main__":
         height=model.height,
         pheromone_grid=model.pheromone_grid,
     )
-
-    _, mean_distance_per_step, final_mean_distance = compute_distance_from_nest(
-        agent_df,
-        nest_x=model.nest_x,
-        nest_y=model.nest_y,
-    )
-    plot_mean_distance(mean_distance_per_step)
-
-    dispersion_df = compute_colony_dispersion(
-        agent_df,
-        nest_x=model.nest_x,
-        nest_y=model.nest_y,
-    )
-    print(dispersion_df.head())
-
-    coverage = compute_space_coverage(agent_df, width=model.width, height=model.height, cell_size=1.0)
-    print(f"Pokrycie przestrzeni: {coverage:.3f}")
+    plot_mean_distance(step_metrics_df[["step", "mean_distance"]])
+    plot_colony_dispersion(step_metrics_df[["step", "dispersion"]])
+    plot_space_coverage(step_metrics_df[["step", "space_coverage"]])

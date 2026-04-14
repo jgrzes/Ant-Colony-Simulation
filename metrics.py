@@ -24,9 +24,7 @@ def compute_colony_dispersion(agent_df, nest_x, nest_y):
     )
 
     dispersion_per_step = (
-        df.groupby("step")["distance_from_nest"]
-        .var()
-        .reset_index(name="dispersion")
+        df.groupby("step")["distance_from_nest"].var().reset_index(name="dispersion")
     )
 
     return dispersion_per_step

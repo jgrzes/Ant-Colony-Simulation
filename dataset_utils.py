@@ -15,9 +15,10 @@ from metrics import (
 )
 
 from plots import (
-    plot_ant_trajectories, 
-    plot_mean_distance, 
-    plot_space_coverage
+    plot_ant_trajectories,
+    plot_mean_distance,
+    plot_space_coverage,
+    plot_colony_dispersion,
 )
 
 
@@ -55,7 +56,7 @@ def load_gt(seq_dir: str | Path) -> pd.DataFrame:
     # we calculate the center of the bounding box as the position of the ant
     df["x"] = df["bb_left"] + df["bb_width"] / 2.0
     df["y"] = df["bb_top"] + df["bb_height"] / 2.0
-    
+
     df = df.sort_values(["ant_id", "frame"]).reset_index(drop=True)
     return df
 
@@ -71,6 +72,7 @@ def prepare_agent_df(gt_df: pd.DataFrame) -> pd.DataFrame:
     required_columns = ["step", "agent_id", "x", "y"]
     return agent_df[required_columns]
 
+
 # we have to change it probably
 def infer_nest_position(agent_df: pd.DataFrame) -> tuple[float, float]:
     first_step = agent_df["step"].min()
@@ -78,7 +80,9 @@ def infer_nest_position(agent_df: pd.DataFrame) -> tuple[float, float]:
     return float(first_positions["x"].mean()), float(first_positions["y"].mean())
 
 
-def compute_step_metrics_for_sequence(seq_dir: str | Path, cell_size: float = 10.0) -> pd.DataFrame:
+def compute_step_metrics_for_sequence(
+    seq_dir: str | Path, cell_size: float = 10.0
+) -> pd.DataFrame:
     seqinfo, gt_df = load_sequence(seq_dir)
     agent_df = prepare_agent_df(gt_df)
 
@@ -95,7 +99,9 @@ def compute_step_metrics_for_sequence(seq_dir: str | Path, cell_size: float = 10
         nest_y=nest_y,
     )
 
-    per_step_df = mean_distance_per_step.merge(dispersion_per_step, on="step", how="left")
+    per_step_df = mean_distance_per_step.merge(
+        dispersion_per_step, on="step", how="left"
+    )
 
     width = float(seqinfo["imWidth"] or 0)
     height = float(seqinfo["imHeight"] or 0)
@@ -110,14 +116,18 @@ def compute_step_metrics_for_sequence(seq_dir: str | Path, cell_size: float = 10
     coverage_by_step: dict[int, float] = {}
 
     for step in steps:
-        step_cells = cells_df.loc[cells_df["step"] == step, ["cell_x", "cell_y"]].drop_duplicates()
+        step_cells = cells_df.loc[
+            cells_df["step"] == step, ["cell_x", "cell_y"]
+        ].drop_duplicates()
         visited_cells.update(map(tuple, step_cells.to_numpy()))
         if total_cells == 0:
             coverage_by_step[int(step)] = 0.0
         else:
             coverage_by_step[int(step)] = len(visited_cells) / total_cells
 
-    per_step_df["space_coverage"] = per_step_df["step"].map(coverage_by_step).fillna(0.0)
+    per_step_df["space_coverage"] = (
+        per_step_df["step"].map(coverage_by_step).fillna(0.0)
+    )
     per_step_df["ants"] = (
         agent_df.groupby("step")["agent_id"]
         .nunique()
@@ -131,7 +141,7 @@ def compute_step_metrics_for_sequence(seq_dir: str | Path, cell_size: float = 10
 # For testing purposes
 if __name__ == "__main__":
     project_root = Path(__file__).resolve().parent
-    report_dir = project_root / "Metric Raports"
+    report_dir = project_root / "Dataset Metrics Reports"
     report_dir.mkdir(parents=True, exist_ok=True)
 
     if len(sys.argv) > 1:
@@ -139,13 +149,17 @@ if __name__ == "__main__":
         if not sequence_path.is_absolute():
             sequence_path = project_root / sequence_path
     else:
-        sequence_path = project_root / "dataset" / "IndoorDataset" / "Seq0001Object10Image94"
+        sequence_path = (
+            project_root / "dataset" / "IndoorDataset" / "Seq0001Object10Image94"
+        )
 
     sequence_path = sequence_path.resolve()
     if not sequence_path.exists():
-        raise FileNotFoundError(f"Nie znaleziono ścieżki sekwencji: {sequence_path}")
+        raise FileNotFoundError(f"Sequence path does not exist: {sequence_path}")
 
-    metrics_per_step_df = compute_step_metrics_for_sequence(sequence_path, cell_size=10.0)
+    metrics_per_step_df = compute_step_metrics_for_sequence(
+        sequence_path, cell_size=10.0
+    )
     step_report_path = report_dir / f"{sequence_path.name}_metrics_per_step.csv"
 
     metrics_per_step_df.to_csv(step_report_path, index=False)
@@ -157,8 +171,20 @@ if __name__ == "__main__":
     agent_df = prepare_agent_df(gt_df)
 
     try:
-        plot_ant_trajectories(agent_df=agent_df, width=seqinfo["imWidth"], height=seqinfo["imHeight"], title=f"Trajektorie mrówek - {seqinfo['name']}")
-        plot_mean_distance(metrics_per_step_df[["step", "mean_distance"]])
-        plot_space_coverage(metrics_per_step_df[["step", "space_coverage"]])
+        plot_ant_trajectories(
+            agent_df=agent_df,
+            width=seqinfo["imWidth"],
+            height=seqinfo["imHeight"],
+            title=f"Trajektorie mrówek - {seqinfo['name']}",
+        )
+        plot_mean_distance(
+            metrics_per_step_df[["step", "mean_distance"]], is_simulation=False
+        )
+        plot_space_coverage(
+            metrics_per_step_df[["step", "space_coverage"]], is_simulation=False
+        )
+        plot_colony_dispersion(
+            metrics_per_step_df[["step", "dispersion"]], is_simulation=False
+        )
     except Exception as e:
         print(f"Failed to generate plots: {e}")
