@@ -1,6 +1,4 @@
-import matplotlib.pyplot as plt
 import numpy as np
-import pandas as pd
 
 
 def compute_distance_from_nest(agent_df, nest_x, nest_y):
@@ -47,28 +45,3 @@ def compute_space_coverage(agent_df, width, height, cell_size=1.0):
         return 0.0
 
     return visited_cells / total_cells
-
-
-def plot_mean_distance(mean_distance_per_step):
-    plt.figure(figsize=(8, 5))
-    plt.plot(
-        mean_distance_per_step["step"],
-        mean_distance_per_step["mean_distance"],
-        marker="o",
-        markersize=3,
-    )
-    plt.xlabel("Krok symulacji")
-    plt.ylabel("Średnia odległość od mrowiska")
-    plt.title("Zmiana średniej odległości agentów od mrowiska")
-    plt.grid(True)
-    plt.show()
-
-
-def plot_pheromone_map(pheromone_grid):
-    plt.figure(figsize=(8, 6))
-    plt.imshow(pheromone_grid, origin="lower", aspect="auto")
-    plt.colorbar(label="Stężenie feromonu")
-    plt.title("Mapa feromonu")
-    plt.xlabel("x")
-    plt.ylabel("y")
-    plt.show()

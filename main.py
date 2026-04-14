@@ -10,10 +10,9 @@ from metrics import (
     compute_distance_from_nest,
     compute_colony_dispersion,
     compute_space_coverage,
-    plot_mean_distance,
-    plot_pheromone_map,
 )
 
+from plots import plot_mean_distance, plot_trajectories
 
 class AntAgent(Agent):
     def __init__(self, model, step_size=1.0):
@@ -164,27 +163,15 @@ def run_demo(steps=80, n_ants=20, seed=42):
     return model, agent_df
 
 
-def plot_trajectories(agent_df, width=40, height=40):
-    plt.figure(figsize=(8, 8))
-
-    for agent_id, group in agent_df.groupby("agent_id"):
-        plt.plot(group["x"], group["y"], marker="o", markersize=2, label=f"Ant {agent_id}")
-
-    plt.scatter([width / 2], [height / 2], marker="x", s=120, label="Mrowisko")
-    plt.xlim(0, width)
-    plt.ylim(0, height)
-    plt.xlabel("x")
-    plt.ylabel("y")
-    plt.title("Trajektorie mrówek - model feromonowy")
-    plt.grid(True)
-    plt.legend()
-    plt.show()
-
-
 if __name__ == "__main__":
     model, agent_df = run_demo(steps=100, n_ants=20, seed=123)
 
-    plot_trajectories(agent_df, width=model.width, height=model.height)
+    plot_trajectories(
+        agent_df,
+        width=model.width,
+        height=model.height,
+        pheromone_grid=model.pheromone_grid,
+    )
 
     _, mean_distance_per_step, final_mean_distance = compute_distance_from_nest(
         agent_df,
@@ -202,5 +189,3 @@ if __name__ == "__main__":
 
     coverage = compute_space_coverage(agent_df, width=model.width, height=model.height, cell_size=1.0)
     print(f"Pokrycie przestrzeni: {coverage:.3f}")
-
-    plot_pheromone_map(model.pheromone_grid)
