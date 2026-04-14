@@ -58,7 +58,10 @@ def plot_ant_trajectories(
     plt.title(title)
     plt.grid(True)
     if agent_df is not None or pheromone_grid is not None:
-        plt.legend()
+        if len(agent_df["agent_id"].unique()) <= 25:
+            plt.legend()
+        else:
+            plt.title(f"{title} (legend hidden for >25 ants)")
     plt.savefig(PLOT_DIR / f"{title.replace(' ', '_')}.png")
 
 

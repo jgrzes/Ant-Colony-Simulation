@@ -45,8 +45,6 @@ if __name__ == "__main__":
     step_report_path = report_dir / f"{run_tag}_metrics_per_step.csv"
     step_metrics_df.to_csv(step_report_path, index=False)
 
-    print(f"Saved step metrics CSV: {step_report_path}")
-
     try:
         plot_ant_trajectories(
             agent_df,
@@ -59,3 +57,4 @@ if __name__ == "__main__":
         plot_space_coverage(step_metrics_df[["step", "space_coverage"]])
     except Exception as e:
         print(f"Failed to generate plots: {e}")
+    print("Simulation and plotting completed.")

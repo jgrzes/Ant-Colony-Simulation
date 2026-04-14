@@ -8,6 +8,7 @@ import sys
 from typing import Any
 
 import pandas as pd
+from InquirerPy import inquirer
 
 from metrics import (
     compute_colony_dispersion,
@@ -138,33 +139,30 @@ def compute_step_metrics_for_sequence(
     return per_step_df.sort_values("step").reset_index(drop=True)
 
 
-# For testing purposes
-if __name__ == "__main__":
+def compute_metrics_for_seq(
+    sequence_path: str | Path,
+    report_dir: str | Path | None = None,
+    cell_size: float = 10.0,
+) -> Path:
     project_root = Path(__file__).resolve().parent
-    report_dir = project_root / "Dataset Metrics Reports"
-    report_dir.mkdir(parents=True, exist_ok=True)
-
-    if len(sys.argv) > 1:
-        sequence_path = Path(sys.argv[1])
-        if not sequence_path.is_absolute():
-            sequence_path = project_root / sequence_path
-    else:
-        sequence_path = (
-            project_root / "dataset" / "IndoorDataset" / "Seq0001Object10Image94"
-        )
-
+    sequence_path = Path(sequence_path)
+    if not sequence_path.is_absolute():
+        sequence_path = project_root / sequence_path
     sequence_path = sequence_path.resolve()
+
     if not sequence_path.exists():
         raise FileNotFoundError(f"Sequence path does not exist: {sequence_path}")
 
+    if report_dir is None:
+        report_dir = project_root / "Dataset Metrics Reports"
+    report_dir = Path(report_dir)
+    report_dir.mkdir(parents=True, exist_ok=True)
+
     metrics_per_step_df = compute_step_metrics_for_sequence(
-        sequence_path, cell_size=10.0
+        sequence_path, cell_size=cell_size
     )
     step_report_path = report_dir / f"{sequence_path.name}_metrics_per_step.csv"
-
     metrics_per_step_df.to_csv(step_report_path, index=False)
-
-    print(f"Step report saved to: {step_report_path}")
 
     seqinfo, gt_df = load_sequence(sequence_path)
     gt_df = gt_df[gt_df["frame"] < 100]
@@ -175,7 +173,7 @@ if __name__ == "__main__":
             agent_df=agent_df,
             width=seqinfo["imWidth"],
             height=seqinfo["imHeight"],
-            title=f"Trajektorie mrówek - {seqinfo['name']}",
+            title=f"Ant Trajectories - {seqinfo['name']}",
         )
         plot_mean_distance(
             metrics_per_step_df[["step", "mean_distance"]], is_simulation=False
@@ -188,3 +186,23 @@ if __name__ == "__main__":
         )
     except Exception as e:
         print(f"Failed to generate plots: {e}")
+
+    return step_report_path
+
+
+# For testing purposes, TODO - move to separate script and add compratator with simulation results
+if __name__ == "__main__":
+    project_root = Path(__file__).resolve().parent
+    if len(sys.argv) > 1:
+        sequence_path = Path(sys.argv[1])
+    else:
+        default_path = (
+            project_root / "dataset" / "IndoorDataset" / "Seq0001Object10Image94"
+        )
+        sequence_path = inquirer.text(
+            message="Path to sequence directory:",
+            default=str(default_path),
+        ).execute()
+
+    step_report_path = compute_metrics_for_seq(sequence_path, cell_size=10.0)
+    print("Metrics computation and plotting completed.")

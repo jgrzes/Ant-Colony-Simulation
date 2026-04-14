@@ -1,7 +1,6 @@
 import math
 
 import numpy as np
-import pandas as pd
 from mesa import Agent, Model
 from mesa.datacollection import DataCollector
 from mesa.space import ContinuousSpace
