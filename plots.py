@@ -25,7 +25,7 @@ def plot_ant_trajectories(
     width=None,
     height=None,
     pheromone_grid=None,
-    title="Trajektorie mrówek - model feromonowy",
+    title="Ants Trajectories",
 ):
     plt.figure(figsize=(8, 8))
 
