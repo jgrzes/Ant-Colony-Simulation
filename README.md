@@ -13,5 +13,5 @@ Prepare your local environment and install necessary dependencies by running the
 Once the environment is ready, launch the main simulation using:
 
 ```python
-python3 main.py
+python3 src/main.py
 ```
