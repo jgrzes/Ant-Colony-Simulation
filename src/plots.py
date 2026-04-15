@@ -1,7 +1,8 @@
 import matplotlib.pyplot as plt
 from pathlib import Path
 
-PLOT_DIR = Path(__file__).resolve().parent / "Generated Plots"
+# Keep generated plots in the project root, outside src.
+PLOT_DIR = Path(__file__).resolve().parents[1] / "Generated Plots"
 PLOT_DIR.mkdir(parents=True, exist_ok=True)
 
 
@@ -50,7 +51,6 @@ def plot_ant_trajectories(
                 label=f"Ant {agent_id}",
             )
 
-    plt.scatter([width / 2], [height / 2], marker="x", s=120, label="Mrowisko")
     plt.xlim(0, width)
     plt.ylim(0, height)
     plt.xlabel("x")

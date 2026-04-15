@@ -12,6 +12,8 @@ from InquirerPy import inquirer
 
 
 if __name__ == "__main__":
+    project_root = Path(__file__).resolve().parents[1]
+
     n_ants = int(
         inquirer.number(
             message="Number of ants:",
@@ -38,7 +40,7 @@ if __name__ == "__main__":
         cell_size=1.0,
     )
 
-    report_dir = Path(__file__).resolve().parent / "Simulation Metrics Reports"
+    report_dir = project_root / "Simulation Metrics Reports"
     report_dir.mkdir(parents=True, exist_ok=True)
     run_tag = f"sim_s{steps}_a{n_ants}"
 

@@ -144,7 +144,7 @@ def compute_metrics_for_seq(
     report_dir: str | Path | None = None,
     cell_size: float = 10.0,
 ) -> Path:
-    project_root = Path(__file__).resolve().parent
+    project_root = Path(__file__).resolve().parents[1]
     sequence_path = Path(sequence_path)
     if not sequence_path.is_absolute():
         sequence_path = project_root / sequence_path
@@ -192,7 +192,7 @@ def compute_metrics_for_seq(
 
 # For testing purposes, TODO - move to separate script and add compratator with simulation results
 if __name__ == "__main__":
-    project_root = Path(__file__).resolve().parent
+    project_root = Path(__file__).resolve().parents[1]
     if len(sys.argv) > 1:
         sequence_path = Path(sys.argv[1])
     else:

@@ -84,13 +84,13 @@ class AntModel(Model):
         n_ants=8,
         width=40,
         height=40,
-        seed=None,
+        rng=None,
         pheromone_deposit=1.0,
         evaporation_rate=0.02,
         turn_strength=0.6,
         noise_strength=0.25,
     ):
-        super().__init__(seed=seed)
+        super().__init__(rng=rng)
 
         self.width = width
         self.height = height
@@ -141,12 +141,12 @@ class AntModel(Model):
         self.datacollector.collect(self)
 
 
-def run_demo(steps=80, n_ants=20, seed=42):
+def run_demo(steps=80, n_ants=20, rng=42):
     model = AntModel(
         n_ants=n_ants,
         width=40,
         height=40,
-        seed=seed,
+        rng=rng,
         pheromone_deposit=1.0,
         evaporation_rate=0.02,
         turn_strength=0.6,
