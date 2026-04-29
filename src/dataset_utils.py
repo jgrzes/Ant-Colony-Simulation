@@ -13,6 +13,9 @@ from InquirerPy import inquirer
 from metrics import (
     compute_colony_dispersion,
     compute_distance_from_nest,
+    compute_mean_turning_angle,
+    compute_mean_displacement,
+    compute_sinuosity,
 )
 
 from plots import (
@@ -20,6 +23,9 @@ from plots import (
     plot_mean_distance,
     plot_space_coverage,
     plot_colony_dispersion,
+    plot_mean_turning_angle,
+    plot_mean_displacement,
+    plot_sinuosity,
 )
 
 
@@ -104,6 +110,12 @@ def compute_step_metrics_for_sequence(
         dispersion_per_step, on="step", how="left"
     )
 
+    turning_df = compute_mean_turning_angle(agent_df)
+    displacement_df = compute_mean_displacement(agent_df)
+    sinuosity_df = compute_sinuosity(agent_df)
+    for extra in (turning_df, displacement_df, sinuosity_df):
+        per_step_df = per_step_df.merge(extra, on="step", how="left")
+
     width = float(seqinfo["imWidth"] or 0)
     height = float(seqinfo["imHeight"] or 0)
     total_cells = int((width // cell_size) * (height // cell_size))
@@ -183,6 +195,15 @@ def compute_metrics_for_seq(
         )
         plot_colony_dispersion(
             metrics_per_step_df[["step", "dispersion"]], is_simulation=False
+        )
+        plot_mean_turning_angle(
+            metrics_per_step_df[["step", "mean_turning_angle"]], is_simulation=False
+        )
+        plot_mean_displacement(
+            metrics_per_step_df[["step", "mean_displacement"]], is_simulation=False
+        )
+        plot_sinuosity(
+            metrics_per_step_df[["step", "mean_sinuosity"]], is_simulation=False
         )
     except Exception as e:
         print(f"Failed to generate plots: {e}")

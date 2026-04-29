@@ -6,6 +6,9 @@ from plots import (
     plot_ant_trajectories,
     plot_space_coverage,
     plot_colony_dispersion,
+    plot_mean_turning_angle,
+    plot_mean_displacement,
+    plot_sinuosity,
 )
 
 from InquirerPy import inquirer
@@ -57,6 +60,9 @@ if __name__ == "__main__":
         plot_mean_distance(step_metrics_df[["step", "mean_distance"]])
         plot_colony_dispersion(step_metrics_df[["step", "dispersion"]])
         plot_space_coverage(step_metrics_df[["step", "space_coverage"]])
+        plot_mean_turning_angle(step_metrics_df[["step", "mean_turning_angle"]])
+        plot_mean_displacement(step_metrics_df[["step", "mean_displacement"]])
+        plot_sinuosity(step_metrics_df[["step", "mean_sinuosity"]])
     except Exception as e:
         print(f"Failed to generate plots: {e}")
     print("Simulation and plotting completed.")
