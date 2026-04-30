@@ -6,7 +6,7 @@ PLOT_DIR = Path(__file__).resolve().parents[1] / "Generated Plots"
 PLOT_DIR.mkdir(parents=True, exist_ok=True)
 
 
-def plot_mean_distance(mean_distance_per_step, is_simulation=True):
+def plot_mean_distance(mean_distance_per_step, is_simulation=True, save_path=None):
     plt.figure(figsize=(8, 5))
     plt.plot(
         mean_distance_per_step["step"],
@@ -18,7 +18,10 @@ def plot_mean_distance(mean_distance_per_step, is_simulation=True):
     plt.ylabel("Średnia odległość od mrowiska")
     plt.title("Zmiana średniej odległości agentów od mrowiska")
     plt.grid(True)
-    plt.savefig(PLOT_DIR / "mean_distance_over_time.png")
+    if save_path is None:
+        save_path = PLOT_DIR / "mean_distance_over_time.png"
+    plt.savefig(save_path)
+    plt.close()
 
 
 def plot_ant_trajectories(
@@ -27,6 +30,7 @@ def plot_ant_trajectories(
     height=None,
     pheromone_grid=None,
     title="Ants Trajectories",
+    save_path=None,
 ):
     plt.figure(figsize=(8, 8))
 
@@ -62,10 +66,69 @@ def plot_ant_trajectories(
             plt.legend()
         else:
             plt.title(f"{title} (legend hidden for >25 ants)")
-    plt.savefig(PLOT_DIR / f"{title.replace(' ', '_')}.png")
+    if save_path is None:
+        save_path = PLOT_DIR / f"{title.replace(' ', '_')}.png"
+    plt.savefig(save_path)
+    plt.close()
 
 
-def plot_space_coverage(coverage_per_step, is_simulation=True):
+def plot_mean_turning_angle(turning_per_step, is_simulation=True, save_path=None):
+    plt.figure(figsize=(8, 5))
+    plt.plot(
+        turning_per_step["step"],
+        turning_per_step["mean_turning_angle"],
+        marker="o",
+        markersize=3,
+    )
+    plt.xlabel("Krok symulacji" if is_simulation else "Krok sekwencji")
+    plt.ylabel("Δθ [rad]")
+    plt.title("Średnia zmiana kierunku ruchu")
+    plt.grid(True)
+    if save_path is None:
+        save_path = PLOT_DIR / "mean_turning_angle_over_time.png"
+    plt.savefig(save_path)
+    plt.close()
+
+
+def plot_mean_displacement(displacement_per_step, is_simulation=True, save_path=None):
+    plt.figure(figsize=(8, 5))
+    plt.plot(
+        displacement_per_step["step"],
+        displacement_per_step["mean_displacement"],
+        marker="o",
+        markersize=3,
+        color="tab:orange",
+    )
+    plt.xlabel("Krok symulacji" if is_simulation else "Krok sekwencji")
+    plt.ylabel("Średnie przemieszczenie")
+    plt.title("Średnie przemieszczenie agenta od pozycji startowej")
+    plt.grid(True)
+    if save_path is None:
+        save_path = PLOT_DIR / "mean_displacement_over_time.png"
+    plt.savefig(save_path)
+    plt.close()
+
+
+def plot_sinuosity(sinuosity_per_step, is_simulation=True, save_path=None):
+    plt.figure(figsize=(8, 5))
+    plt.plot(
+        sinuosity_per_step["step"],
+        sinuosity_per_step["mean_sinuosity"],
+        marker="o",
+        markersize=3,
+        color="tab:green",
+    )
+    plt.xlabel("Krok symulacji" if is_simulation else "Krok sekwencji")
+    plt.ylabel("Krętość S")
+    plt.title("Średnia krętość trajektorii agentów")
+    plt.grid(True)
+    if save_path is None:
+        save_path = PLOT_DIR / "sinuosity_over_time.png"
+    plt.savefig(save_path)
+    plt.close()
+
+
+def plot_space_coverage(coverage_per_step, is_simulation=True, save_path=None):
     plt.figure(figsize=(8, 5))
     plt.plot(
         coverage_per_step["step"],
@@ -77,10 +140,13 @@ def plot_space_coverage(coverage_per_step, is_simulation=True):
     plt.ylabel("Pokrycie przestrzeni")
     plt.title("Zmiana pokrycia przestrzeni przez agentów")
     plt.grid(True)
-    plt.savefig(PLOT_DIR / "space_coverage_over_time.png")
+    if save_path is None:
+        save_path = PLOT_DIR / "space_coverage_over_time.png"
+    plt.savefig(save_path)
+    plt.close()
 
 
-def plot_colony_dispersion(dispersion_per_step, is_simulation=True):
+def plot_colony_dispersion(dispersion_per_step, is_simulation=True, save_path=None):
     plt.figure(figsize=(8, 5))
     plt.plot(
         dispersion_per_step["step"],
@@ -92,4 +158,7 @@ def plot_colony_dispersion(dispersion_per_step, is_simulation=True):
     plt.ylabel("Dyspersja kolonii")
     plt.title("Zmiana dyspersji kolonii w czasie")
     plt.grid(True)
-    plt.savefig(PLOT_DIR / "colony_dispersion_over_time.png")
+    if save_path is None:
+        save_path = PLOT_DIR / "colony_dispersion_over_time.png"
+    plt.savefig(save_path)
+    plt.close()

@@ -1,4 +1,5 @@
 import math
+from collections import deque
 
 import numpy as np
 from mesa import Agent, Model
@@ -8,6 +9,9 @@ from mesa.space import ContinuousSpace
 from metrics import (
     compute_distance_from_nest,
     compute_colony_dispersion,
+    compute_mean_turning_angle,
+    compute_mean_displacement,
+    compute_sinuosity,
 )
 
 
@@ -16,30 +20,62 @@ class AntAgent(Agent):
         super().__init__(model)
         self.step_size = step_size
         self.heading = self.random.uniform(0, 2 * math.pi)
+        # Bufor pozycji do opóźnionej depozycji feromonu - mrówka nie podąża
+        # za własnym świeżym śladem (anty-self-trapping).
+        self._deposit_queue: deque = deque(maxlen=model.pheromone_delay + 1)
 
-    def _clip_position(self, x, y):
-        x = min(max(x, 0.0), self.model.width - 1e-6)
-        y = min(max(y, 0.0), self.model.height - 1e-6)
+    def _reflect_position(self, x, y):
+        # Odbicie od ścian z odpowiednim odwróceniem kierunku zamiast
+        # przycinania, które powodowało "klejenie się" mrówek do brzegu.
+        w = self.model.width - 1e-6
+        h = self.model.height - 1e-6
+
+        if x < 0.0:
+            x = -x
+            self.heading = math.pi - self.heading
+        elif x > w:
+            x = 2.0 * w - x
+            self.heading = math.pi - self.heading
+
+        if y < 0.0:
+            y = -y
+            self.heading = -self.heading
+        elif y > h:
+            y = 2.0 * h - y
+            self.heading = -self.heading
+
+        # Zabezpieczenie na wypadek bardzo dużego kroku.
+        x = min(max(x, 0.0), w)
+        y = min(max(y, 0.0), h)
         return x, y
 
-    def _sample_pheromone(self, angle_offset, distance=2.0):
+    def _sample_pheromone(self, angle_offset):
         """
         Odczyt feromonu w punkcie przesuniętym względem aktualnego kierunku.
         angle_offset < 0 -> prawa strona
         angle_offset > 0 -> lewa strona
+        Punkty próbkowania poza planszą zwracają 0.
         """
+        distance = self.model.sensor_distance
         sample_angle = self.heading + angle_offset
         sx = self.pos[0] + math.cos(sample_angle) * distance
         sy = self.pos[1] + math.sin(sample_angle) * distance
 
-        sx, sy = self._clip_position(sx, sy)
+        if not (0.0 <= sx < self.model.width and 0.0 <= sy < self.model.height):
+            return 0.0
 
         cell_x = int(sx)
         cell_y = int(sy)
         return self.model.pheromone_grid[cell_y, cell_x]
 
     def _deposit_pheromone(self):
-        x, y = self.pos
+        # Depozycja jest opóźniona o `pheromone_delay` kroków - dopiero gdy bufor
+        # zapełni się, najstarsza zapamiętana pozycja zasila siatkę feromonu.
+        self._deposit_queue.append(self.pos)
+        if len(self._deposit_queue) <= self.model.pheromone_delay:
+            return
+
+        x, y = self._deposit_queue[0]
         cell_x = int(x)
         cell_y = int(y)
         self.model.pheromone_grid[cell_y, cell_x] += self.model.pheromone_deposit
@@ -48,12 +84,11 @@ class AntAgent(Agent):
         # Zostaw feromon w aktualnej pozycji
         self._deposit_pheromone()
 
-        # Odczyt feromonu po lewej i prawej stronie
-        left_pheromone = self._sample_pheromone(angle_offset=math.pi / 4)
-        right_pheromone = self._sample_pheromone(angle_offset=-math.pi / 4)
+        sensor_angle = self.model.sensor_angle
+        left_pheromone = self._sample_pheromone(angle_offset=sensor_angle)
+        right_pheromone = self._sample_pheromone(angle_offset=-sensor_angle)
 
-        # Reguła podobna do Webera:
-        # skręt zależy od różnicy / sumy
+        # Reguła Webera: skręt zależy od (L - R) / (L + R).
         denom = left_pheromone + right_pheromone + 1e-6
         pheromone_bias = self.model.turn_strength * (
             (left_pheromone - right_pheromone) / denom
@@ -73,7 +108,7 @@ class AntAgent(Agent):
 
         new_x = self.pos[0] + dx
         new_y = self.pos[1] + dy
-        new_x, new_y = self._clip_position(new_x, new_y)
+        new_x, new_y = self._reflect_position(new_x, new_y)
 
         self.model.space.move_agent(self, (new_x, new_y))
 
@@ -89,6 +124,9 @@ class AntModel(Model):
         evaporation_rate=0.02,
         turn_strength=0.6,
         noise_strength=0.25,
+        sensor_distance=2.0,
+        sensor_angle=math.pi / 4,
+        pheromone_delay=3,
     ):
         super().__init__(rng=rng)
 
@@ -103,6 +141,9 @@ class AntModel(Model):
         self.evaporation_rate = evaporation_rate
         self.turn_strength = turn_strength
         self.noise_strength = noise_strength
+        self.sensor_distance = sensor_distance
+        self.sensor_angle = sensor_angle
+        self.pheromone_delay = pheromone_delay
 
         # Siatka feromonu: [y, x]
         self.pheromone_grid = np.zeros((height, width), dtype=float)
@@ -151,6 +192,9 @@ def run_demo(steps=80, n_ants=20, rng=42):
         evaporation_rate=0.02,
         turn_strength=0.6,
         noise_strength=0.25,
+        sensor_distance=2.0,
+        sensor_angle=math.pi / 4,
+        pheromone_delay=3,
     )
 
     for _ in range(steps):
@@ -175,6 +219,12 @@ def build_step_metrics(agent_df, nest_x, nest_y, width, height, cell_size=1.0):
     )
 
     step_metrics_df = mean_distance_per_step.merge(dispersion_df, on="step", how="left")
+
+    turning_df = compute_mean_turning_angle(agent_df)
+    displacement_df = compute_mean_displacement(agent_df)
+    sinuosity_df = compute_sinuosity(agent_df)
+    for extra in (turning_df, displacement_df, sinuosity_df):
+        step_metrics_df = step_metrics_df.merge(extra, on="step", how="left")
 
     cells_df = agent_df.copy()
     cells_df["cell_x"] = (cells_df["x"] // cell_size).astype(int)
