@@ -186,6 +186,38 @@ def plot_ant_step_by_step_gif(
     return save_path
 
 
+def plot_metric_comparison(real_df, sim_df, metric, is_simulation=True, save_path=None):
+    """Plot real vs simulated per-step values for a single metric."""
+    plt.figure(figsize=(8, 5))
+
+    plt.plot(real_df["step"], real_df[metric], marker="o", markersize=3, label="real")
+    plt.plot(sim_df["step"], sim_df[metric], marker="o", markersize=3, label="sim")
+    plt.xlabel("Krok symulacji" if is_simulation else "Krok sekwencji")
+    plt.ylabel(metric)
+    plt.title(f"Real vs Simulated - {metric}")
+    plt.grid(True)
+    plt.legend()
+
+    if save_path is None:
+        save_path = PLOT_DIR / f"{metric}_real_vs_sim.png"
+    plt.savefig(save_path)
+    plt.close()
+
+
+def plot_fit_history(history_df, save_path=None):
+    plt.figure(figsize=(8, 5))
+    plt.plot(history_df["iter"], history_df["loss"], marker="o", markersize=3)
+    plt.xlabel("Iteration")
+    plt.ylabel("Loss")
+    plt.title("Fit history")
+    plt.grid(True)
+
+    if save_path is None:
+        save_path = PLOT_DIR / "fit_history.png"
+    plt.savefig(save_path)
+    plt.close()
+
+
 def plot_mean_turning_angle(turning_per_step, is_simulation=True, save_path=None):
     plt.figure(figsize=(8, 5))
     plt.plot(

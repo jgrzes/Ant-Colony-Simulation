@@ -127,6 +127,8 @@ class AntModel(Model):
         sensor_distance=2.0,
         sensor_angle=math.pi / 4,
         pheromone_delay=3,
+        initial_positions=None,
+        **kwargs,
     ):
         super().__init__(rng=rng)
 
@@ -160,11 +162,21 @@ class AntModel(Model):
             },
         )
 
-        for _ in range(n_ants):
+        # If `initial_positions` provided, use them (one per ant, truncated/padded as needed).
+        init_pos_list = []
+        if initial_positions is not None:
+            init_pos_list = list(initial_positions)
+
+        for i in range(n_ants):
             ant = AntAgent(self, step_size=self.random.uniform(0.5, 1.5))
 
-            start_x = self.nest_x + self.random.uniform(-2, 2)
-            start_y = self.nest_y + self.random.uniform(-2, 2)
+            if i < len(init_pos_list):
+                start_x, start_y = float(init_pos_list[i][0]), float(
+                    init_pos_list[i][1]
+                )
+            else:
+                start_x = self.nest_x + self.random.uniform(-2, 2)
+                start_y = self.nest_y + self.random.uniform(-2, 2)
 
             start_x = min(max(start_x, 0.0), width - 1e-6)
             start_y = min(max(start_y, 0.0), height - 1e-6)
@@ -182,19 +194,23 @@ class AntModel(Model):
         self.datacollector.collect(self)
 
 
-def run_demo(steps=80, n_ants=20, rng=42):
+def run_demo(
+    steps=80,
+    n_ants=20,
+    rng=42,
+    width=40,
+    height=40,
+    initial_positions=None,
+    **model_kwargs,
+):
+
     model = AntModel(
         n_ants=n_ants,
-        width=40,
-        height=40,
+        width=width,
+        height=height,
         rng=rng,
-        pheromone_deposit=1.0,
-        evaporation_rate=0.02,
-        turn_strength=0.6,
-        noise_strength=0.25,
-        sensor_distance=2.0,
-        sensor_angle=math.pi / 4,
-        pheromone_delay=3,
+        initial_positions=initial_positions,
+        **model_kwargs,
     )
 
     for _ in range(steps):

@@ -1,6 +1,8 @@
 from pathlib import Path
 
 from agent_model import run_demo, build_step_metrics
+from fitter import random_search_fit
+from compare import compare_sequence
 from plots import (
     plot_mean_distance,
     plot_ant_trajectories,
@@ -17,6 +19,41 @@ from InquirerPy import inquirer
 
 if __name__ == "__main__":
     project_root = Path(__file__).resolve().parents[1]
+
+    compare = inquirer.confirm(
+        message="Fit a simulation to a real dataset sequence and compare it? (if No, runs a demo simulation with default parameters)",
+        default=True,
+    ).execute()
+
+    if compare:
+        sequence_path = inquirer.filepath(
+            message="Path to dataset sequence folder (with gt/gt.txt):",
+            default=str(
+                project_root / "dataset" / "IndoorDataset" / "Seq0001Object10Image94"
+            ),
+            only_directories=True,
+        ).execute()
+
+        n_iter = int(
+            inquirer.number(
+                message="Number of random search iterations:",
+                default=20,
+                min_allowed=1,
+            ).execute()
+        )
+
+        print("\nRunning random search fit...")
+        fit_result = random_search_fit(
+            sequence_path, n_iter=n_iter, metrics=None, results_dir=None
+        )
+        print(f"Best loss: {fit_result['best']['loss']}")
+        print(f"History saved: {fit_result['history_path']}")
+
+        print("\nGenerating comparison plots and GIFs...")
+        compare_result = compare_sequence(sequence_path, fit_result["history_path"])
+        print("Comparison complete.")
+        print(f"Output directory: {compare_result['output_dir']}")
+        exit(0)
 
     n_ants = int(
         inquirer.number(
