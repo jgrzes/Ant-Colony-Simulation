@@ -4,6 +4,7 @@ from agent_model import run_demo, build_step_metrics
 from plots import (
     plot_mean_distance,
     plot_ant_trajectories,
+    plot_ant_step_by_step_gif,
     plot_space_coverage,
     plot_colony_dispersion,
     plot_mean_turning_angle,
@@ -31,6 +32,10 @@ if __name__ == "__main__":
             min_allowed=1,
         ).execute()
     )
+    plot_gif = inquirer.confirm(
+        message="Generate step-by-step GIF of ant trajectories?",
+        default=True,
+    ).execute()
 
     model, agent_df = run_demo(steps=steps, n_ants=n_ants)
 
@@ -57,6 +62,13 @@ if __name__ == "__main__":
             height=model.height,
             pheromone_grid=model.pheromone_grid,
         )
+        if plot_gif:
+            plot_ant_step_by_step_gif(
+                agent_df,
+                width=model.width,
+                height=model.height,
+                pheromone_grid=model.pheromone_grid,
+            )
         plot_mean_distance(step_metrics_df[["step", "mean_distance"]])
         plot_colony_dispersion(step_metrics_df[["step", "dispersion"]])
         plot_space_coverage(step_metrics_df[["step", "space_coverage"]])
