@@ -14,9 +14,8 @@ from dataset_utils import (
 
 # Metrics that we try to fit to
 DEFAULT_METRICS = [
+    "dispersion",
     "mean_displacement",
-    "mean_turning_angle",
-    "mean_sinuosity",
     "space_coverage",
 ]
 
@@ -74,13 +73,13 @@ def _build_context(sequence_path: str | Path) -> Dict[str, Any]:
 def _evaluate_params(
     params: Dict[str, Any], context: Dict[str, Any], metrics: List[str]
 ):
-    model, sim_agent_df = run_demo(
+    _, sim_agent_df = run_demo(
         steps=context["steps"],
         n_ants=context["n_ants"],
         width=context["width"],
         height=context["height"],
         initial_positions=context["initial_positions"],
-        rng=None,
+        rng=42,
         **params,
     )
     sim_metrics = build_step_metrics(
@@ -114,10 +113,19 @@ def optuna_fit(
             "pheromone_deposit": trial.suggest_float("pheromone_deposit", 0.1, 2.0),
             "evaporation_rate": trial.suggest_float("evaporation_rate", 0.005, 0.1),
             "turn_strength": trial.suggest_float("turn_strength", 0.5, 2.0),
-            "noise_strength": trial.suggest_float("noise_strength", 0.0, 0.6),
+            "noise_strength": trial.suggest_float("noise_strength", 0.5, 2.0),
             "sensor_distance": trial.suggest_float("sensor_distance", 0.5, 8.0),
             "sensor_angle": trial.suggest_float("sensor_angle", 0.1, 1.5),
             "pheromone_delay": trial.suggest_int("pheromone_delay", 0, 6),
+            "cohesion_strength": trial.suggest_float("cohesion_strength", 0.0, 0.10),
+            "separation_strength": trial.suggest_float(
+                "separation_strength", 0.0, 0.15
+            ),
+            "preferred_group_distance": trial.suggest_float(
+                "preferred_group_distance", 250.0, 450.0
+            ),
+            "step_size_min": trial.suggest_float("step_size_min", 0.5, 1.0),
+            "step_size_max": trial.suggest_float("step_size_max", 1.0, 1.5),
         }
 
         loss, sim_metrics = _evaluate_params(params, context, metrics)

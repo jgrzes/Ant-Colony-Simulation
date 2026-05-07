@@ -1,7 +1,7 @@
 import numpy as np
 
 
-_EPS = 1e-9
+_EPS = 10
 
 
 def compute_colony_dispersion(agent_df):

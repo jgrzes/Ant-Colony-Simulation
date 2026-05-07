@@ -79,6 +79,43 @@ class AntAgent(Agent):
         cell_y = int(y)
         self.model.pheromone_grid[cell_y, cell_x] += self.model.pheromone_deposit
 
+    def _group_bias(self):
+        if len(self.model.agents) <= 1:
+            return 0.0
+
+        positions = np.array([agent.pos for agent in self.model.agents], dtype=float)
+        centroid_x, centroid_y = positions.mean(axis=0)
+
+        dx = centroid_x - self.pos[0]
+        dy = centroid_y - self.pos[1]
+        dist = math.sqrt(dx * dx + dy * dy)
+
+        if dist < 1e-9:
+            return 0.0
+
+        angle_to_centroid = math.atan2(dy, dx)
+
+        angle_to_centroid_diff = math.atan2(
+            math.sin(angle_to_centroid - self.heading),
+            math.cos(angle_to_centroid - self.heading),
+        )
+
+        preferred = max(self.model.preferred_group_distance, 1e-9)
+        error = (dist - preferred) / preferred
+
+        if error > 0:
+            # Za daleko od grupy: lekko skręć do centroidu.
+            return self.model.cohesion_strength * error * angle_to_centroid_diff
+
+        # Za blisko grupy: lekko skręć od centroidu.
+        angle_away = angle_to_centroid + math.pi
+        angle_away_diff = math.atan2(
+            math.sin(angle_away - self.heading),
+            math.cos(angle_away - self.heading),
+        )
+
+        return self.model.separation_strength * (-error) * angle_away_diff
+
     def step(self):
         # Zostaw feromon w aktualnej pozycji
         self._deposit_pheromone()
@@ -93,13 +130,15 @@ class AntAgent(Agent):
             (left_pheromone - right_pheromone) / denom
         )
 
+        group_bias = self._group_bias()
+
         # Mały losowy szum, żeby ruch nie był całkiem deterministyczny
         noise = self.random.uniform(
             -self.model.noise_strength, self.model.noise_strength
         )
 
         # Aktualizacja kierunku
-        self.heading += pheromone_bias + noise
+        self.heading += pheromone_bias + group_bias + noise
 
         # Ruch
         dx = math.cos(self.heading) * self.step_size
@@ -118,7 +157,7 @@ class AntModel(Model):
         n_ants=8,
         width=40,
         height=40,
-        rng=None,
+        rng=42,
         pheromone_deposit=1.0,
         evaporation_rate=0.02,
         turn_strength=0.6,
@@ -126,7 +165,12 @@ class AntModel(Model):
         sensor_distance=2.0,
         sensor_angle=math.pi / 4,
         pheromone_delay=3,
+        cohesion_strength=0.0,
+        separation_strength=0.0,
+        preferred_group_distance=300.0,
         initial_positions=None,
+        step_size_min=0.5,
+        step_size_max=1.5,
         **kwargs,
     ):
         super().__init__(rng=rng)
@@ -142,6 +186,11 @@ class AntModel(Model):
         self.sensor_distance = sensor_distance
         self.sensor_angle = sensor_angle
         self.pheromone_delay = pheromone_delay
+        self.cohesion_strength = cohesion_strength
+        self.separation_strength = separation_strength
+        self.preferred_group_distance = preferred_group_distance
+        self.step_size_min = step_size_min
+        self.step_size_max = step_size_max
 
         # Siatka feromonu: [y, x]
         self.pheromone_grid = np.zeros((height, width), dtype=float)
@@ -164,7 +213,10 @@ class AntModel(Model):
             init_pos_list = list(initial_positions)
 
         for i in range(n_ants):
-            ant = AntAgent(self, step_size=self.random.uniform(0.5, 1.5))
+            ant = AntAgent(
+                self,
+                step_size=self.random.uniform(self.step_size_min, self.step_size_max),
+            )
 
             if i < len(init_pos_list):
                 start_x, start_y = float(init_pos_list[i][0]), float(
