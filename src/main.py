@@ -4,7 +4,6 @@ from agent_model import run_demo, build_step_metrics
 from fitter import optuna_fit
 from compare import compare_sequence
 from plots import (
-    plot_mean_distance,
     plot_ant_trajectories,
     plot_ant_step_by_step_gif,
     plot_space_coverage,
@@ -28,9 +27,6 @@ if __name__ == "__main__":
     if compare:
         sequence_path = inquirer.filepath(
             message="Path to dataset sequence folder (with gt/gt.txt):",
-            default=str(
-                project_root / "dataset" / "IndoorDataset" / "Seq0008Object31Image64"
-            ),
             only_directories=True,
         ).execute()
 
@@ -74,8 +70,6 @@ if __name__ == "__main__":
 
     step_metrics_df = build_step_metrics(
         agent_df,
-        nest_x=model.nest_x,
-        nest_y=model.nest_y,
         width=model.width,
         height=model.height,
         cell_size=10.0,
@@ -102,7 +96,6 @@ if __name__ == "__main__":
                 height=model.height,
                 pheromone_grid=model.pheromone_grid,
             )
-        plot_mean_distance(step_metrics_df[["step", "mean_distance"]])
         plot_colony_dispersion(step_metrics_df[["step", "dispersion"]])
         plot_space_coverage(step_metrics_df[["step", "space_coverage"]])
         plot_mean_turning_angle(step_metrics_df[["step", "mean_turning_angle"]])

@@ -9,24 +9,6 @@ PLOT_DIR = Path(__file__).resolve().parents[1] / "Generated Plots"
 PLOT_DIR.mkdir(parents=True, exist_ok=True)
 
 
-def plot_mean_distance(mean_distance_per_step, is_simulation=True, save_path=None):
-    plt.figure(figsize=(8, 5))
-    plt.plot(
-        mean_distance_per_step["step"],
-        mean_distance_per_step["mean_distance"],
-        marker="o",
-        markersize=3,
-    )
-    plt.xlabel("Krok symulacji" if is_simulation else "Krok sekwencji")
-    plt.ylabel("Średnia odległość od mrowiska")
-    plt.title("Zmiana średniej odległości agentów od mrowiska")
-    plt.grid(True)
-    if save_path is None:
-        save_path = PLOT_DIR / "mean_distance_over_time.png"
-    plt.savefig(save_path)
-    plt.close()
-
-
 def plot_ant_trajectories(
     agent_df=None,
     width=None,

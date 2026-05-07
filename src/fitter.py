@@ -14,10 +14,10 @@ from dataset_utils import (
 
 # Metrics that we try to fit to
 DEFAULT_METRICS = [
-    "mean_distance",
-    "dispersion",
+    "mean_displacement",
     "mean_turning_angle",
     "mean_sinuosity",
+    "space_coverage",
 ]
 
 
@@ -85,8 +85,6 @@ def _evaluate_params(
     )
     sim_metrics = build_step_metrics(
         sim_agent_df,
-        nest_x=model.nest_x,
-        nest_y=model.nest_y,
         width=context["width"],
         height=context["height"],
         cell_size=10.0,

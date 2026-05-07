@@ -99,11 +99,9 @@ def compare_sequence(sequence_path: str | Path, history_path: str | Path | None 
     )
     sim_metrics = build_step_metrics(
         sim_agent_df,
-        nest_x=model.nest_x,
-        nest_y=model.nest_y,
         width=width,
         height=height,
-        cell_size=1.0,
+        cell_size=10.0,
     )
 
     output_dir = project_root / "Generated Plots"
@@ -114,7 +112,6 @@ def compare_sequence(sequence_path: str | Path, history_path: str | Path | None 
     )
 
     for metric in [
-        "mean_distance",
         "dispersion",
         "mean_turning_angle",
         "mean_displacement",

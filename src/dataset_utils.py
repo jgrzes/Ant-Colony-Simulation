@@ -12,7 +12,6 @@ from InquirerPy import inquirer
 
 from metrics import (
     compute_colony_dispersion,
-    compute_distance_from_nest,
     compute_mean_turning_angle,
     compute_mean_displacement,
     compute_sinuosity,
@@ -20,7 +19,6 @@ from metrics import (
 
 from plots import (
     plot_ant_trajectories,
-    plot_mean_distance,
     plot_space_coverage,
     plot_colony_dispersion,
     plot_mean_turning_angle,
@@ -80,35 +78,13 @@ def prepare_agent_df(gt_df: pd.DataFrame) -> pd.DataFrame:
     return agent_df[required_columns]
 
 
-# we have to change it probably
-def infer_nest_position(agent_df: pd.DataFrame) -> tuple[float, float]:
-    first_step = agent_df["step"].min()
-    first_positions = agent_df[agent_df["step"] == first_step]
-    return float(first_positions["x"].mean()), float(first_positions["y"].mean())
-
-
 def compute_step_metrics_for_sequence(
     seq_dir: str | Path, cell_size: float = 10.0
 ) -> pd.DataFrame:
     seqinfo, gt_df = load_sequence(seq_dir)
     agent_df = prepare_agent_df(gt_df)
 
-    nest_x, nest_y = infer_nest_position(agent_df)
-
-    _, mean_distance_per_step, _ = compute_distance_from_nest(
-        agent_df,
-        nest_x=nest_x,
-        nest_y=nest_y,
-    )
-    dispersion_per_step = compute_colony_dispersion(
-        agent_df,
-        nest_x=nest_x,
-        nest_y=nest_y,
-    )
-
-    per_step_df = mean_distance_per_step.merge(
-        dispersion_per_step, on="step", how="left"
-    )
+    per_step_df = compute_colony_dispersion(agent_df)
 
     turning_df = compute_mean_turning_angle(agent_df)
     displacement_df = compute_mean_displacement(agent_df)
@@ -186,9 +162,6 @@ def compute_metrics_for_seq(
             width=seqinfo["imWidth"],
             height=seqinfo["imHeight"],
             title=f"Ant Trajectories - {seqinfo['name']}",
-        )
-        plot_mean_distance(
-            metrics_per_step_df[["step", "mean_distance"]], is_simulation=False
         )
         plot_space_coverage(
             metrics_per_step_df[["step", "space_coverage"]], is_simulation=False

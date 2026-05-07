@@ -4,30 +4,18 @@ import numpy as np
 _EPS = 1e-9
 
 
-def compute_distance_from_nest(agent_df, nest_x, nest_y):
+def compute_colony_dispersion(agent_df):
     df = agent_df.copy()
-    df["distance_from_nest"] = np.sqrt(
-        (df["x"] - nest_x) ** 2 + (df["y"] - nest_y) ** 2
-    )
-
-    mean_distance_per_step = (
-        df.groupby("step")["distance_from_nest"]
+    centroids = (
+        df.groupby("step")[["x", "y"]]
         .mean()
-        .reset_index(name="mean_distance")
+        .rename(columns={"x": "cx", "y": "cy"})
+        .reset_index()
     )
-
-    final_mean_distance = mean_distance_per_step["mean_distance"].iloc[-1]
-    return df, mean_distance_per_step, final_mean_distance
-
-
-def compute_colony_dispersion(agent_df, nest_x, nest_y):
-    df = agent_df.copy()
-    df["distance_from_nest"] = np.sqrt(
-        (df["x"] - nest_x) ** 2 + (df["y"] - nest_y) ** 2
-    )
-
+    df = df.merge(centroids, on="step", how="left")
+    df["sq_dist_to_centroid"] = (df["x"] - df["cx"]) ** 2 + (df["y"] - df["cy"]) ** 2
     dispersion_per_step = (
-        df.groupby("step")["distance_from_nest"].var().reset_index(name="dispersion")
+        df.groupby("step")["sq_dist_to_centroid"].mean().reset_index(name="dispersion")
     )
 
     return dispersion_per_step
@@ -69,13 +57,9 @@ def compute_mean_displacement(agent_df):
         .reset_index()
     )
     df = df.merge(starts, on="agent_id", how="left")
-    df["displacement"] = np.sqrt(
-        (df["x"] - df["x0"]) ** 2 + (df["y"] - df["y0"]) ** 2
-    )
+    df["displacement"] = np.sqrt((df["x"] - df["x0"]) ** 2 + (df["y"] - df["y0"]) ** 2)
     return (
-        df.groupby("step")["displacement"]
-        .mean()
-        .reset_index(name="mean_displacement")
+        df.groupby("step")["displacement"].mean().reset_index(name="mean_displacement")
     )
 
 
@@ -98,17 +82,11 @@ def compute_sinuosity(agent_df):
         .reset_index()
     )
     df = df.merge(starts, on="agent_id", how="left")
-    df["euclid"] = np.sqrt(
-        (df["x"] - df["x0"]) ** 2 + (df["y"] - df["y0"]) ** 2
-    )
+    df["euclid"] = np.sqrt((df["x"] - df["x0"]) ** 2 + (df["y"] - df["y0"]) ** 2)
 
     df = df[df["euclid"] > _EPS]
     df["sinuosity"] = df["path_length"] / df["euclid"]
-    return (
-        df.groupby("step")["sinuosity"]
-        .mean()
-        .reset_index(name="mean_sinuosity")
-    )
+    return df.groupby("step")["sinuosity"].mean().reset_index(name="mean_sinuosity")
 
 
 def compute_space_coverage(agent_df, width, height, cell_size=1.0):

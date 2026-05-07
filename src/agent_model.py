@@ -7,7 +7,6 @@ from mesa.datacollection import DataCollector
 from mesa.space import ContinuousSpace
 
 from metrics import (
-    compute_distance_from_nest,
     compute_colony_dispersion,
     compute_mean_turning_angle,
     compute_mean_displacement,
@@ -136,9 +135,6 @@ class AntModel(Model):
         self.height = height
         self.space = ContinuousSpace(width, height, torus=False)
 
-        self.nest_x = width / 2
-        self.nest_y = height / 2
-
         self.pheromone_deposit = pheromone_deposit
         self.evaporation_rate = evaporation_rate
         self.turn_strength = turn_strength
@@ -175,8 +171,8 @@ class AntModel(Model):
                     init_pos_list[i][1]
                 )
             else:
-                start_x = self.nest_x + self.random.uniform(-2, 2)
-                start_y = self.nest_y + self.random.uniform(-2, 2)
+                start_x = self.random.uniform(0.0, width - 1e-6)
+                start_y = self.random.uniform(0.0, height - 1e-6)
 
             start_x = min(max(start_x, 0.0), width - 1e-6)
             start_y = min(max(start_y, 0.0), height - 1e-6)
@@ -222,19 +218,10 @@ def run_demo(
     return model, agent_df
 
 
-def build_step_metrics(agent_df, nest_x, nest_y, width, height, cell_size=1.0):
-    _, mean_distance_per_step, final_mean_distance = compute_distance_from_nest(
-        agent_df,
-        nest_x=nest_x,
-        nest_y=nest_y,
-    )
-    dispersion_df = compute_colony_dispersion(
-        agent_df,
-        nest_x=nest_x,
-        nest_y=nest_y,
-    )
+def build_step_metrics(agent_df, width, height, cell_size=1.0):
+    dispersion_df = compute_colony_dispersion(agent_df)
 
-    step_metrics_df = mean_distance_per_step.merge(dispersion_df, on="step", how="left")
+    step_metrics_df = dispersion_df.copy()
 
     turning_df = compute_mean_turning_angle(agent_df)
     displacement_df = compute_mean_displacement(agent_df)
