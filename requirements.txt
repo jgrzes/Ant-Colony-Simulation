@@ -2,3 +2,4 @@ mesa
 matplotlib
 networkx
 InquirerPy
+optuna

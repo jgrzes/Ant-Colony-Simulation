@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from agent_model import run_demo, build_step_metrics
-from fitter import random_search_fit
+from fitter import optuna_fit
 from compare import compare_sequence
 from plots import (
     plot_mean_distance,
@@ -29,23 +29,19 @@ if __name__ == "__main__":
         sequence_path = inquirer.filepath(
             message="Path to dataset sequence folder (with gt/gt.txt):",
             default=str(
-                project_root / "dataset" / "IndoorDataset" / "Seq0001Object10Image94"
+                project_root / "dataset" / "IndoorDataset" / "Seq0008Object31Image64"
             ),
             only_directories=True,
         ).execute()
 
-        n_iter = int(
-            inquirer.number(
-                message="Number of random search iterations:",
-                default=20,
-                min_allowed=1,
-            ).execute()
-        )
+        n_trials = inquirer.number(
+            message="Number of optuna trials:",
+            default=50,
+            min_allowed=1,
+        ).execute()
 
-        print("\nRunning random search fit...")
-        fit_result = random_search_fit(
-            sequence_path, n_iter=n_iter, metrics=None, results_dir=None
-        )
+        print("\nRunning optuna fit...")
+        fit_result = optuna_fit(sequence_path, n_iter=int(n_trials))
         print(f"Best loss: {fit_result['best']['loss']}")
         print(f"History saved: {fit_result['history_path']}")
 

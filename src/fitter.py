@@ -1,7 +1,7 @@
 from pathlib import Path
-import csv
-import random
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List
+
+import optuna
 
 import numpy as np
 
@@ -12,24 +12,13 @@ from dataset_utils import (
     prepare_agent_df,
 )
 
+# Metrics that we try to fit to
 DEFAULT_METRICS = [
     "mean_distance",
     "dispersion",
     "mean_turning_angle",
-    "mean_displacement",
     "mean_sinuosity",
-    "space_coverage",
 ]
-
-DEFAULT_PARAM_SPACE: Dict[str, Tuple[float, float]] = {
-    "pheromone_deposit": (0.1, 2.0),
-    "evaporation_rate": (0.005, 0.1),
-    "turn_strength": (0.1, 1.2),
-    "noise_strength": (0.0, 0.6),
-    "sensor_distance": (1.0, 5.0),
-    "sensor_angle": (0.1, 1.5),
-    "pheromone_delay": (0, 6),
-}
 
 
 def _align_and_mse(real_df, sim_df, metrics: List[str]) -> float:
@@ -44,12 +33,6 @@ def _align_and_mse(real_df, sim_df, metrics: List[str]) -> float:
     if not errors:
         return float("inf")
     return float(np.nanmean(errors))
-
-
-def _coerce_param_value(name: str, value: float) -> Any:
-    if name == "pheromone_delay":
-        return int(round(value))
-    return float(value)
 
 
 def _build_context(sequence_path: str | Path) -> Dict[str, Any]:
@@ -100,44 +83,66 @@ def _evaluate_params(
     return loss, sim_metrics
 
 
-def random_search_fit(
+def optuna_fit(
     sequence_path: str | Path,
-    param_space: Dict[str, Tuple[float, float]] | None = None,
     n_iter: int = 40,
     metrics: List[str] | None = None,
     results_dir: str | Path | None = None,
 ):
-    if param_space is None:
-        param_space = DEFAULT_PARAM_SPACE
     if metrics is None:
         metrics = DEFAULT_METRICS
-    if results_dir is None:
-        results_dir = Path("Simulation Metrics Reports")
-    results_dir = Path(results_dir)
+
+    results_dir = (
+        Path(results_dir) if results_dir else Path("Simulation Metrics Reports")
+    )
     results_dir.mkdir(parents=True, exist_ok=True)
 
     context = _build_context(sequence_path)
-    history: List[Dict[str, Any]] = []
-    best = {"loss": float("inf"), "params": None, "sim_metrics": None}
 
-    for i in range(n_iter):
-        params = {}
-        for name, bounds in param_space.items():
-            value = random.uniform(*bounds)
-            params[name] = _coerce_param_value(name, value)
+    def objective(trial):
+        params = {
+            "pheromone_deposit": trial.suggest_float("pheromone_deposit", 0.1, 2.0),
+            "evaporation_rate": trial.suggest_float("evaporation_rate", 0.005, 0.1),
+            "turn_strength": trial.suggest_float("turn_strength", 0.1, 1.2),
+            "noise_strength": trial.suggest_float("noise_strength", 0.0, 0.6),
+            "sensor_distance": trial.suggest_float("sensor_distance", 1.0, 5.0),
+            "sensor_angle": trial.suggest_float("sensor_angle", 0.1, 1.5),
+            "pheromone_delay": trial.suggest_int("pheromone_delay", 0, 6),
+        }
+
         loss, sim_metrics = _evaluate_params(params, context, metrics)
-        history.append({"iter": i, "loss": loss, **params})
-        if loss < best["loss"]:
-            best = {"loss": loss, "params": params, "sim_metrics": sim_metrics}
 
-    out_csv = results_dir / f"fit_{context['sequence_path'].name}_history.csv"
-    with open(out_csv, "w", newline="") as fh:
-        writer = csv.DictWriter(fh, fieldnames=list(history[0].keys()))
-        writer.writeheader()
-        writer.writerows(history)
+        trial.set_user_attr("sim_metrics", sim_metrics)
+
+        return loss
+
+    optuna.logging.set_verbosity(optuna.logging.WARNING)
+
+    study = optuna.create_study(direction="minimize")
+    study.optimize(objective, n_trials=n_iter)
+
+    best_trial = study.best_trial
+
+    history_df = study.trials_dataframe()
+
+    # clean up column names
+    if "value" in history_df.columns:
+        history_df.rename(columns={"value": "loss"}, inplace=True)
+
+    if "number" in history_df.columns:
+        history_df.rename(columns={"number": "iter"}, inplace=True)
+
+    history_df.columns = [col.replace("params_", "") for col in history_df.columns]
+
+    out_csv = results_dir / f"fit_optuna_{context['sequence_path'].name}_history.csv"
+    history_df.to_csv(out_csv, index=False)
 
     return {
-        "best": best,
+        "best": {
+            "loss": best_trial.value,
+            "params": best_trial.params,
+            "sim_metrics": best_trial.user_attrs.get("sim_metrics"),
+        },
         "history_path": out_csv,
         "real_metrics": context["real_metrics"],
     }
