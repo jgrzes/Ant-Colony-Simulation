@@ -23,16 +23,28 @@ DEFAULT_METRICS = [
 
 def _align_and_mse(real_df, sim_df, metrics: List[str]) -> float:
     merged = real_df.merge(sim_df, on="step", suffixes=("_real", "_sim"))
-    errors = []
+    normalized_errors = []
+
     for metric in metrics:
         real_col = f"{metric}_real"
         sim_col = f"{metric}_sim"
         if real_col in merged.columns and sim_col in merged.columns:
-            diff = merged[real_col].to_numpy() - merged[sim_col].to_numpy()
-            errors.append(np.nanmean(diff**2))
-    if not errors:
+            real_vals = merged[real_col].to_numpy()
+            sim_vals = merged[sim_col].to_numpy()
+            diff = real_vals - sim_vals
+
+            real_range = np.nanmax(real_vals) - np.nanmin(real_vals)
+            if real_range < 1e-9:
+                # If range is tiny, use max value as denominator
+                real_range = np.nanmax(np.abs(real_vals)) + 1e-9
+
+            normalized_mse = np.nanmean((diff / real_range) ** 2)
+            normalized_errors.append(normalized_mse)
+
+    if not normalized_errors:
         return float("inf")
-    return float(np.nanmean(errors))
+
+    return float(np.nanmean(normalized_errors))
 
 
 def _build_context(sequence_path: str | Path) -> Dict[str, Any]:
@@ -77,7 +89,7 @@ def _evaluate_params(
         nest_y=model.nest_y,
         width=context["width"],
         height=context["height"],
-        cell_size=1.0,
+        cell_size=10.0,
     )
     loss = _align_and_mse(context["real_metrics"], sim_metrics, metrics)
     return loss, sim_metrics
@@ -103,9 +115,9 @@ def optuna_fit(
         params = {
             "pheromone_deposit": trial.suggest_float("pheromone_deposit", 0.1, 2.0),
             "evaporation_rate": trial.suggest_float("evaporation_rate", 0.005, 0.1),
-            "turn_strength": trial.suggest_float("turn_strength", 0.1, 1.2),
+            "turn_strength": trial.suggest_float("turn_strength", 0.5, 2.0),
             "noise_strength": trial.suggest_float("noise_strength", 0.0, 0.6),
-            "sensor_distance": trial.suggest_float("sensor_distance", 1.0, 5.0),
+            "sensor_distance": trial.suggest_float("sensor_distance", 0.5, 8.0),
             "sensor_angle": trial.suggest_float("sensor_angle", 0.1, 1.5),
             "pheromone_delay": trial.suggest_int("pheromone_delay", 0, 6),
         }

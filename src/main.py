@@ -78,7 +78,7 @@ if __name__ == "__main__":
         nest_y=model.nest_y,
         width=model.width,
         height=model.height,
-        cell_size=1.0,
+        cell_size=10.0,
     )
 
     report_dir = project_root / "Simulation Metrics Reports"
