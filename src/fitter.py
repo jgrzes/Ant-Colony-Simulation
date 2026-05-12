@@ -16,8 +16,16 @@ from dataset_utils import (
 DEFAULT_METRICS = [
     "dispersion",
     "mean_displacement",
+    "mean_turning_angle",
     "space_coverage",
 ]
+
+METRIC_WEIGHTS = {
+    "dispersion": 1.0,
+    "mean_displacement": 1.0,
+    "mean_turning_angle": 0.5,
+    "space_coverage": 2.0,
+}
 
 
 def _align_and_mse(real_df, sim_df, metrics: List[str]) -> float:
@@ -38,6 +46,8 @@ def _align_and_mse(real_df, sim_df, metrics: List[str]) -> float:
                 real_range = np.nanmax(np.abs(real_vals)) + 1e-9
 
             normalized_mse = np.nanmean((diff / real_range) ** 2)
+            weight = METRIC_WEIGHTS.get(metric, 1.0)
+            normalized_mse *= weight
             normalized_errors.append(normalized_mse)
 
     if not normalized_errors:
