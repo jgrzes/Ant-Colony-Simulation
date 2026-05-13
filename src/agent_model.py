@@ -7,7 +7,6 @@ from mesa.datacollection import DataCollector
 from mesa.space import ContinuousSpace
 
 from metrics import (
-    compute_distance_from_nest,
     compute_colony_dispersion,
     compute_mean_turning_angle,
     compute_mean_displacement,
@@ -80,6 +79,43 @@ class AntAgent(Agent):
         cell_y = int(y)
         self.model.pheromone_grid[cell_y, cell_x] += self.model.pheromone_deposit
 
+    def _group_bias(self):
+        if len(self.model.agents) <= 1:
+            return 0.0
+
+        positions = np.array([agent.pos for agent in self.model.agents], dtype=float)
+        centroid_x, centroid_y = positions.mean(axis=0)
+
+        dx = centroid_x - self.pos[0]
+        dy = centroid_y - self.pos[1]
+        dist = math.sqrt(dx * dx + dy * dy)
+
+        if dist < 1e-9:
+            return 0.0
+
+        angle_to_centroid = math.atan2(dy, dx)
+
+        angle_to_centroid_diff = math.atan2(
+            math.sin(angle_to_centroid - self.heading),
+            math.cos(angle_to_centroid - self.heading),
+        )
+
+        preferred = max(self.model.preferred_group_distance, 1e-9)
+        error = (dist - preferred) / preferred
+
+        if error > 0:
+            # Za daleko od grupy: lekko skręć do centroidu.
+            return self.model.cohesion_strength * error * angle_to_centroid_diff
+
+        # Za blisko grupy: lekko skręć od centroidu.
+        angle_away = angle_to_centroid + math.pi
+        angle_away_diff = math.atan2(
+            math.sin(angle_away - self.heading),
+            math.cos(angle_away - self.heading),
+        )
+
+        return self.model.separation_strength * (-error) * angle_away_diff
+
     def step(self):
         # Zostaw feromon w aktualnej pozycji
         self._deposit_pheromone()
@@ -94,13 +130,15 @@ class AntAgent(Agent):
             (left_pheromone - right_pheromone) / denom
         )
 
+        group_bias = self._group_bias()
+
         # Mały losowy szum, żeby ruch nie był całkiem deterministyczny
         noise = self.random.uniform(
             -self.model.noise_strength, self.model.noise_strength
         )
 
         # Aktualizacja kierunku
-        self.heading += pheromone_bias + noise
+        self.heading += pheromone_bias + group_bias + noise
 
         # Ruch
         dx = math.cos(self.heading) * self.step_size
@@ -119,7 +157,7 @@ class AntModel(Model):
         n_ants=8,
         width=40,
         height=40,
-        rng=None,
+        rng=42,
         pheromone_deposit=1.0,
         evaporation_rate=0.02,
         turn_strength=0.6,
@@ -127,15 +165,19 @@ class AntModel(Model):
         sensor_distance=2.0,
         sensor_angle=math.pi / 4,
         pheromone_delay=3,
+        cohesion_strength=0.0,
+        separation_strength=0.0,
+        preferred_group_distance=300.0,
+        initial_positions=None,
+        step_size_min=0.5,
+        step_size_max=1.5,
+        **kwargs,
     ):
         super().__init__(rng=rng)
 
         self.width = width
         self.height = height
         self.space = ContinuousSpace(width, height, torus=False)
-
-        self.nest_x = width / 2
-        self.nest_y = height / 2
 
         self.pheromone_deposit = pheromone_deposit
         self.evaporation_rate = evaporation_rate
@@ -144,6 +186,11 @@ class AntModel(Model):
         self.sensor_distance = sensor_distance
         self.sensor_angle = sensor_angle
         self.pheromone_delay = pheromone_delay
+        self.cohesion_strength = cohesion_strength
+        self.separation_strength = separation_strength
+        self.preferred_group_distance = preferred_group_distance
+        self.step_size_min = step_size_min
+        self.step_size_max = step_size_max
 
         # Siatka feromonu: [y, x]
         self.pheromone_grid = np.zeros((height, width), dtype=float)
@@ -160,11 +207,24 @@ class AntModel(Model):
             },
         )
 
-        for _ in range(n_ants):
-            ant = AntAgent(self, step_size=self.random.uniform(0.5, 1.5))
+        # If `initial_positions` provided, use them (one per ant, truncated/padded as needed).
+        init_pos_list = []
+        if initial_positions is not None:
+            init_pos_list = list(initial_positions)
 
-            start_x = self.nest_x + self.random.uniform(-2, 2)
-            start_y = self.nest_y + self.random.uniform(-2, 2)
+        for i in range(n_ants):
+            ant = AntAgent(
+                self,
+                step_size=self.random.uniform(self.step_size_min, self.step_size_max),
+            )
+
+            if i < len(init_pos_list):
+                start_x, start_y = float(init_pos_list[i][0]), float(
+                    init_pos_list[i][1]
+                )
+            else:
+                start_x = self.random.uniform(0.0, width - 1e-6)
+                start_y = self.random.uniform(0.0, height - 1e-6)
 
             start_x = min(max(start_x, 0.0), width - 1e-6)
             start_y = min(max(start_y, 0.0), height - 1e-6)
@@ -182,19 +242,23 @@ class AntModel(Model):
         self.datacollector.collect(self)
 
 
-def run_demo(steps=80, n_ants=20, rng=42):
+def run_demo(
+    steps=80,
+    n_ants=20,
+    rng=42,
+    width=40,
+    height=40,
+    initial_positions=None,
+    **model_kwargs,
+):
+
     model = AntModel(
         n_ants=n_ants,
-        width=40,
-        height=40,
+        width=width,
+        height=height,
         rng=rng,
-        pheromone_deposit=1.0,
-        evaporation_rate=0.02,
-        turn_strength=0.6,
-        noise_strength=0.25,
-        sensor_distance=2.0,
-        sensor_angle=math.pi / 4,
-        pheromone_delay=3,
+        initial_positions=initial_positions,
+        **model_kwargs,
     )
 
     for _ in range(steps):
@@ -206,19 +270,10 @@ def run_demo(steps=80, n_ants=20, rng=42):
     return model, agent_df
 
 
-def build_step_metrics(agent_df, nest_x, nest_y, width, height, cell_size=1.0):
-    _, mean_distance_per_step, final_mean_distance = compute_distance_from_nest(
-        agent_df,
-        nest_x=nest_x,
-        nest_y=nest_y,
-    )
-    dispersion_df = compute_colony_dispersion(
-        agent_df,
-        nest_x=nest_x,
-        nest_y=nest_y,
-    )
+def build_step_metrics(agent_df, width, height, cell_size=1.0):
+    dispersion_df = compute_colony_dispersion(agent_df)
 
-    step_metrics_df = mean_distance_per_step.merge(dispersion_df, on="step", how="left")
+    step_metrics_df = dispersion_df.copy()
 
     turning_df = compute_mean_turning_angle(agent_df)
     displacement_df = compute_mean_displacement(agent_df)

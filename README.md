@@ -15,3 +15,5 @@ Once the environment is ready, launch the main simulation using:
 ```python
 python3 src/main.py
 ```
+
+Then choose whether you prefer to run a comparison of the simulation versus the actual dataset or run a new randomly initialized simulation.
