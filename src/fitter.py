@@ -16,14 +16,14 @@ from dataset_utils import (
 DEFAULT_METRICS = [
     "dispersion",
     "mean_displacement",
-    "mean_turning_angle",
+    "mean_sinuosity",
     "space_coverage",
 ]
 
 METRIC_WEIGHTS = {
     "dispersion": 1.0,
     "mean_displacement": 1.0,
-    "mean_turning_angle": 0.5,
+    "mean_sinuosity": 0.5,
     "space_coverage": 2.0,
 }
 
@@ -165,6 +165,16 @@ def optuna_fit(
         history_df.rename(columns={"number": "iter"}, inplace=True)
 
     history_df.columns = [col.replace("params_", "") for col in history_df.columns]
+
+    sort_cols = []
+    if "loss" in history_df.columns:
+        sort_cols.append("loss")
+    if "iter" in history_df.columns:
+        sort_cols.append("iter")
+    if sort_cols:
+        history_df = history_df.sort_values(
+            sort_cols, ascending=[True] * len(sort_cols)
+        ).reset_index(drop=True)
 
     out_csv = results_dir / f"fit_optuna_{context['sequence_path'].name}_history.csv"
     history_df.to_csv(out_csv, index=False)

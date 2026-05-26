@@ -245,7 +245,13 @@ def plot_metric_comparison(real_df, sim_df, metric, is_simulation=True, save_pat
 
 def plot_fit_history(history_df, save_path=None):
     plt.figure(figsize=(8, 5))
-    plt.plot(history_df["iter"], history_df["loss"], marker="o", markersize=3)
+    df = history_df.copy()
+    if "iter" in df.columns:
+        df = df.sort_values("iter").reset_index(drop=True)
+        x = df["iter"]
+    else:
+        x = df.index
+    plt.plot(x, df["loss"], marker="o", markersize=3)
     plt.xlabel("Iteration")
     plt.ylabel("Loss")
     plt.title("Fit history")

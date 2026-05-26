@@ -55,7 +55,11 @@ def _load_best_params(history_path: Path) -> tuple[pd.DataFrame, dict[str, Any]]
     return history_df, params
 
 
-def compare_sequence(sequence_path: str | Path, history_path: str | Path | None = None):
+def compare_sequence(
+    sequence_path: str | Path,
+    history_path: str | Path | None = None,
+    output_dir: str | Path | None = None,
+):
     project_root = Path(__file__).resolve().parents[1]
     sequence_path = Path(sequence_path)
     if not sequence_path.is_absolute():
@@ -104,7 +108,7 @@ def compare_sequence(sequence_path: str | Path, history_path: str | Path | None 
         cell_size=10.0,
     )
 
-    output_dir = project_root / "Generated Plots"
+    output_dir = Path(output_dir) if output_dir else project_root / "Generated Plots"
     output_dir.mkdir(parents=True, exist_ok=True)
 
     plot_fit_history(
@@ -113,7 +117,6 @@ def compare_sequence(sequence_path: str | Path, history_path: str | Path | None 
 
     for metric in [
         "dispersion",
-        "mean_turning_angle",
         "mean_displacement",
         "mean_sinuosity",
         "space_coverage",
@@ -146,4 +149,6 @@ def compare_sequence(sequence_path: str | Path, history_path: str | Path | None 
         "history_path": history_path,
         "best_params": best_params,
         "output_dir": output_dir,
+        "real_metrics": real_metrics,
+        "sim_metrics": sim_metrics,
     }
