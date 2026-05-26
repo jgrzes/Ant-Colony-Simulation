@@ -43,26 +43,52 @@ def _run_batch_experiment(project_root: Path, dataset_names: list[str], n_trials
             fit_result = optuna_fit(sequence_path, n_iter=n_trials)
             compare_result = compare_sequence(sequence_path, fit_result["history_path"])
 
-            summary_rows.append(
-                {
-                    "dataset": dataset_name,
-                    "sequence": sequence_path.name,
-                    "n_trials": n_trials,
-                    "best_loss": fit_result["best"]["loss"],
-                    "history_path": str(fit_result["history_path"]),
-                    "output_dir": str(compare_result["output_dir"]),
-                }
+            baseline_loss = fit_result["baseline"]["loss"]
+            best_loss = fit_result["best"]["loss"]
+
+            improvement_abs = baseline_loss - best_loss
+            improvement_pct = (
+                100.0 * improvement_abs / baseline_loss
+                if baseline_loss and baseline_loss > 0
+                else 0.0
             )
 
+            best_params = fit_result["best"]["params"]
+
+            summary_row = {
+                "dataset": dataset_name,
+                "sequence": sequence_path.name,
+                "n_trials": n_trials,
+                "baseline_loss": baseline_loss,
+                "best_loss": best_loss,
+                "improvement_abs": improvement_abs,
+                "improvement_pct": improvement_pct,
+                "history_path": str(fit_result["history_path"]),
+                "output_dir": str(compare_result["output_dir"]),
+            }
+
+            for param_name, param_value in best_params.items():
+                summary_row[f"best_{param_name}"] = param_value
+
+            summary_rows.append(summary_row)
+
+    # Sort summary rows by dataset then best_loss (ascending) for easier inspection
+    if summary_rows:
+        try:
+            summary_rows = sorted(
+                summary_rows,
+                key=lambda r: (
+                    r.get("dataset", ""),
+                    float(r.get("best_loss", float("inf"))),
+                ),
+            )
+        except Exception:
+            summary_rows = sorted(summary_rows, key=lambda r: r.get("dataset", ""))
+
     summary_path = report_dir / "batch_experiment_summary.csv"
-    fieldnames = [
-        "dataset",
-        "sequence",
-        "n_trials",
-        "best_loss",
-        "history_path",
-        "output_dir",
-    ]
+
+    fieldnames = sorted({key for row in summary_rows for key in row.keys()})
+
     with summary_path.open("w", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(handle, fieldnames=fieldnames)
         writer.writeheader()
