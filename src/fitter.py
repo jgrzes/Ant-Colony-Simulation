@@ -166,17 +166,6 @@ def optuna_fit(
 
     history_df.columns = [col.replace("params_", "") for col in history_df.columns]
 
-    # Ensure deterministic ordering: sort by loss (ascending) then iter if present
-    sort_cols = []
-    if "loss" in history_df.columns:
-        sort_cols.append("loss")
-    if "iter" in history_df.columns:
-        sort_cols.append("iter")
-    if sort_cols:
-        history_df = history_df.sort_values(
-            sort_cols, ascending=[True] * len(sort_cols)
-        ).reset_index(drop=True)
-
     out_csv = results_dir / f"fit_optuna_{context['sequence_path'].name}_history.csv"
     history_df.to_csv(out_csv, index=False)
 
