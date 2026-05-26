@@ -1,4 +1,5 @@
 from pathlib import Path
+import csv
 
 from agent_model import run_demo, build_step_metrics
 from fitter import optuna_fit
@@ -16,15 +17,74 @@ from plots import (
 from InquirerPy import inquirer
 
 
+def _list_sequences(dataset_root: Path) -> list[Path]:
+    if not dataset_root.exists():
+        return []
+
+    return [
+        path
+        for path in sorted(dataset_root.iterdir())
+        if path.is_dir() and (path / "seqinfo.ini").exists()
+    ]
+
+
+def _run_batch_experiment(project_root: Path, dataset_names: list[str], n_trials: int):
+    dataset_root = project_root / "dataset"
+    report_dir = project_root / "Simulation Metrics Reports"
+    report_dir.mkdir(parents=True, exist_ok=True)
+
+    summary_rows: list[dict[str, object]] = []
+
+    for dataset_name in dataset_names:
+        for sequence_path in _list_sequences(dataset_root / dataset_name):
+            print(
+                f"\nFitting {dataset_name}/{sequence_path.name} with {n_trials} trials..."
+            )
+            fit_result = optuna_fit(sequence_path, n_iter=n_trials)
+            compare_result = compare_sequence(sequence_path, fit_result["history_path"])
+
+            summary_rows.append(
+                {
+                    "dataset": dataset_name,
+                    "sequence": sequence_path.name,
+                    "n_trials": n_trials,
+                    "best_loss": fit_result["best"]["loss"],
+                    "history_path": str(fit_result["history_path"]),
+                    "output_dir": str(compare_result["output_dir"]),
+                }
+            )
+
+    summary_path = report_dir / "batch_experiment_summary.csv"
+    fieldnames = [
+        "dataset",
+        "sequence",
+        "n_trials",
+        "best_loss",
+        "history_path",
+        "output_dir",
+    ]
+    with summary_path.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(summary_rows)
+
+    return summary_path
+
+
 if __name__ == "__main__":
     project_root = Path(__file__).resolve().parents[1]
 
-    compare = inquirer.confirm(
-        message="Fit a simulation to a real dataset sequence and compare it? (if No, runs a demo simulation with default parameters)",
-        default=True,
+    mode = inquirer.select(
+        message="What do you want to run?",
+        choices=[
+            "Fit a single dataset sequence",
+            "Run a batch experiment on all sequences",
+            "Run a demo simulation",
+        ],
+        default="Fit a single dataset sequence",
     ).execute()
 
-    if compare:
+    if mode == "Fit a single dataset sequence":
         sequence_path = inquirer.filepath(
             message="Path to dataset sequence folder (with gt/gt.txt):",
             only_directories=True,
@@ -32,7 +92,7 @@ if __name__ == "__main__":
 
         n_trials = inquirer.number(
             message="Number of optuna trials:",
-            default=50,
+            default=100,
             min_allowed=1,
         ).execute()
 
@@ -45,6 +105,31 @@ if __name__ == "__main__":
         compare_result = compare_sequence(sequence_path, fit_result["history_path"])
         print("Comparison complete.")
         print(f"Output directory: {compare_result['output_dir']}")
+        exit(0)
+
+    if mode == "Run a batch experiment on all sequences":
+        dataset_choice = inquirer.select(
+            message="Which dataset(s) should be included?",
+            choices=["IndoorDataset", "OutdoorDataset", "Both"],
+            default="Both",
+        ).execute()
+        selected_datasets = (
+            ["IndoorDataset", "OutdoorDataset"]
+            if dataset_choice == "Both"
+            else [dataset_choice]
+        )
+
+        n_trials = int(
+            inquirer.number(
+                message="Number of optuna trials per sequence:",
+                default=100,
+                min_allowed=1,
+            ).execute()
+        )
+
+        print("\nRunning batch experiment...")
+        summary_path = _run_batch_experiment(project_root, selected_datasets, n_trials)
+        print(f"Batch experiment completed. Summary saved to: {summary_path}")
         exit(0)
 
     n_ants = int(
