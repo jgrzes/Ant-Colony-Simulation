@@ -72,22 +72,40 @@ def _run_batch_experiment(project_root: Path, dataset_names: list[str], n_trials
 
             summary_rows.append(summary_row)
 
-    # Sort summary rows by dataset then best_loss (ascending) for easier inspection
-    if summary_rows:
-        try:
-            summary_rows = sorted(
-                summary_rows,
-                key=lambda r: (
-                    r.get("dataset", ""),
-                    float(r.get("best_loss", float("inf"))),
-                ),
-            )
-        except Exception:
-            summary_rows = sorted(summary_rows, key=lambda r: r.get("dataset", ""))
-
     summary_path = report_dir / "batch_experiment_summary.csv"
 
-    fieldnames = sorted({key for row in summary_rows for key in row.keys()})
+    if not summary_rows:
+        print("No sequences found for selected dataset(s).")
+        return summary_path
+
+    summary_rows = sorted(
+        summary_rows,
+        key=lambda row: (
+            str(row.get("dataset", "")),
+            float(row.get("best_loss", float("inf"))),
+        ),
+    )
+
+    base_fieldnames = [
+        "dataset",
+        "sequence",
+        "n_trials",
+        "baseline_loss",
+        "best_loss",
+        "improvement_abs",
+        "improvement_pct",
+        "history_path",
+        "output_dir",
+    ]
+    extra_fieldnames = sorted(
+        {
+            key
+            for row in summary_rows
+            for key in row.keys()
+            if key not in base_fieldnames
+        }
+    )
+    fieldnames = base_fieldnames + extra_fieldnames
 
     with summary_path.open("w", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(handle, fieldnames=fieldnames)
@@ -124,7 +142,18 @@ if __name__ == "__main__":
 
         print("\nRunning optuna fit...")
         fit_result = optuna_fit(sequence_path, n_iter=int(n_trials))
-        print(f"Best loss: {fit_result['best']['loss']}")
+        baseline_loss = fit_result["baseline"]["loss"]
+        best_loss = fit_result["best"]["loss"]
+        improvement_abs = baseline_loss - best_loss
+        improvement_pct = (
+            100.0 * improvement_abs / baseline_loss
+            if baseline_loss and baseline_loss > 0
+            else 0.0
+        )
+
+        print(f"Baseline loss: {baseline_loss}")
+        print(f"Best loss: {best_loss}")
+        print(f"Improvement: {improvement_abs} ({improvement_pct:.2f}%)")
         print(f"History saved: {fit_result['history_path']}")
 
         print("\nGenerating comparison plots and GIFs...")
