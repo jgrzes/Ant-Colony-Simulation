@@ -16,14 +16,14 @@ from dataset_utils import (
 DEFAULT_METRICS = [
     "dispersion",
     "mean_displacement",
-    "mean_turning_angle",
+    "mean_sinuosity",
     "space_coverage",
 ]
 
 METRIC_WEIGHTS = {
     "dispersion": 1.0,
     "mean_displacement": 1.0,
-    "mean_turning_angle": 0.5,
+    "mean_sinuosity": 0.5,
     "space_coverage": 2.0,
 }
 
@@ -118,6 +118,10 @@ def optuna_fit(
 
     context = _build_context(sequence_path)
 
+    baseline_loss, baseline_metrics = _evaluate_params(
+        params={}, context=context, metrics=metrics
+    )
+
     def objective(trial):
         params = {
             "pheromone_deposit": trial.suggest_float("pheromone_deposit", 0.1, 2.0),
@@ -151,7 +155,7 @@ def optuna_fit(
 
     best_trial = study.best_trial
 
-    history_df = study.trials_dataframe()
+    history_df = study.trials_dataframe(attrs=("number", "value", "params"))
 
     # clean up column names
     if "value" in history_df.columns:
@@ -162,10 +166,24 @@ def optuna_fit(
 
     history_df.columns = [col.replace("params_", "") for col in history_df.columns]
 
+    sort_cols = []
+    if "loss" in history_df.columns:
+        sort_cols.append("loss")
+    if "iter" in history_df.columns:
+        sort_cols.append("iter")
+    if sort_cols:
+        history_df = history_df.sort_values(
+            sort_cols, ascending=[True] * len(sort_cols)
+        ).reset_index(drop=True)
+
     out_csv = results_dir / f"fit_optuna_{context['sequence_path'].name}_history.csv"
     history_df.to_csv(out_csv, index=False)
 
     return {
+        "baseline": {
+            "loss": baseline_loss,
+            "sim_metrics": baseline_metrics,
+        },
         "best": {
             "loss": best_trial.value,
             "params": best_trial.params,
